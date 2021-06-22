@@ -1,0 +1,74 @@
+name: Release 
+
+on:
+  push:
+    tags:
+      - 'v*'
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  tagged-release:
+    name: "Tagged Release"
+    runs-on: ubuntu-latest
+    needs: [linux-tagged-release, windows-tagged-release]
+
+    steps:
+    - name: Download Linux Artifacts
+      uses: actions/download-artifact@v2
+      with:
+        name: linux-ci-example.tar.gz
+    - name: Download Windows Artifacts
+      uses: actions/download-artifact@v2
+      with:
+        name: windows-ci-example.zip
+    - name: Publish artifacts 
+      uses: marvinpinto/action-automatic-releases@latest
+      with:
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        prerelease: false
+        files: |
+          linux-static-websocat.tar.gz
+          windows-static-websocat.zip
+
+  linux-tagged-release:
+    name: "Linux Tagged Release"
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Static config
+      run: rustup target add x86_64-unknown-linux-musl
+    - name: Install 
+      run: cargo install --features=ssl --target x86_64-unknown-linux-musl --verbose websocat 
+    - name: Compress 
+      run: tar cvzf linux-ci-example.tar.gz -C /home/runner/work/ci-example/ci-example/target/x86_64-unknown-linux-musl/release ci-example
+    - name: Artifact 
+      uses: actions/upload-artifact@v2 
+      with:
+        name: linux-static-websocat.tar.gz 
+        path: linux-static-websocat.tar.gz
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  windows-tagged-release:
+    name: "Windows Tagged Release"
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build
+      shell: powershell
+      run: |
+        cp config $HOME/.cargo
+        cargo install --features=ssl --verbose websocat 
+    - name: Compress 
+      shell: powershell
+      run: Compress-Archive D:\a\ci-example\ci-example\target\release\ci-example.exe windows-ci-example.zip 
+    - name: Artifact 
+      uses: actions/upload-artifact@v2 
+      with:
+        name: windows-static-websocat.zip 
+        path: windows-static-websocat.zip
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
